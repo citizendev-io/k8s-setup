@@ -1,0 +1,17 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: portainer-ingress-route
+  namespace: portainer
+spec:
+  entryPoints:
+    - web
+    - websecure
+  routes:
+  - match: Host(`portainer.k8s.citizendev.vn`) 
+    kind: Rule
+    services:
+    - name: portainer
+      port: 9000
+
+

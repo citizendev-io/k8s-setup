@@ -1,0 +1,92 @@
+env:
+  - name: CF_API_EMAIL
+    valueFrom:
+      secretKeyRef:
+        key: email
+        name: cloudflare-api-credentials
+  - name: CF_API_KEY
+    valueFrom:
+      secretKeyRef:
+        key: apiKey
+        name: cloudflare-api-credentials
+
+ingressRoute:
+  dashboard:
+    enabled: false
+
+persistence:
+  enabled: true
+  size: 128Mi
+
+deployment:
+  initContainers:
+    - name: volume-permissions
+      image: traefik:v2.10.4
+      command:
+        [
+          "sh",
+          "-c",
+          "touch /data/acme.json; chown 65532 /data/acme.json; chmod -v 600 /data/acme.json",
+        ]
+      securityContext:
+        runAsNonRoot: false
+        runAsGroup: 0
+        runAsUser: 0
+      volumeMounts:
+        - name: data
+          mountPath: /data
+
+certResolvers: 
+  cloudflare:
+    # for challenge options cf. https://doc.traefik.io/traefik/https/acme/
+    email: longvu186@gmail.com 
+    dnsChallenge:
+      # also add the provider's required configuration under env
+      # or expand then from secrets/configmaps with envfrom
+      # cf. https://doc.traefik.io/traefik/https/acme/#providers
+      provider: cloudflare
+      # add futher options for the dns challenge as needed
+      # cf. https://doc.traefik.io/traefik/https/acme/#dnschallenge
+      delayBeforeCheck: 30
+      resolvers:
+        - 1.1.1.1
+        - 1.0.0.1
+        - 8.8.8.8
+    tlsChallenge: true
+    httpChallenge:
+      entryPoint: "web"
+    # It has to match the path with a persistent volume
+    storage: /data/acme.json
+
+ports:
+  traefik:
+    port: 9000
+    expose: false
+    exposedPort: 9000
+    protocol: TCP
+  web:
+    port: 8000
+    expose: true
+    exposedPort: 80
+    protocol: TCP
+    redirectTo: websecure
+  websecure:
+    port: 8443
+    expose: true
+    exposedPort: 443
+    protocol: TCP
+    appProtocol: https
+    http3:
+      enabled: false
+    tls:
+      enabled: true
+      # this is the name of a TLSOption definition
+      certResolver: "cloudflare"
+    middlewares: []
+  metrics:
+    port: 9100
+    expose: false
+    exposedPort: 9100
+    protocol: TCP
+
+
